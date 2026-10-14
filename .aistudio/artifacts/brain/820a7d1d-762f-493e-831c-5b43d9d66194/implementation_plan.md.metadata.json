@@ -1,0 +1,6 @@
+{
+  "summary": "Implementation plan for Hermes Agent Battery Usage Monitor & Low-Power Background Service Manager, designed to intelligently suspend heavy local LLM processes and MCP synchronization while preserving critical calendar notifications.",
+  "updatedAt": "2026-10-14T12:24:13.689757849Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

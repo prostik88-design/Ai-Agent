@@ -1,0 +1,6 @@
+{
+  "name": "Hermes Agent",
+  "description": "Личный автономный ИИ-агент с поддержкой голосовых команд, установкой навыков, интеграцией Google и Outlook календарей, MCP коннекторами и локальными ИИ моделями.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
