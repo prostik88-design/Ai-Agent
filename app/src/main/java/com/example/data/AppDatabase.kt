@@ -19,9 +19,11 @@ import kotlinx.coroutines.launch
         McpServerEntity::class,
         McpLogEntity::class,
         AgentMessageEntity::class,
-        AgentTaskEntity::class
+        AgentTaskEntity::class,
+        ProjectEntity::class,
+        DirectChatMessageEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +34,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mcpDao(): McpDao
     abstract fun agentMessageDao(): AgentMessageDao
     abstract fun agentTaskDao(): AgentTaskDao
+    abstract fun projectDao(): ProjectDao
+    abstract fun directChatMessageDao(): DirectChatMessageDao
 
     companion object {
         @Volatile
@@ -295,6 +299,49 @@ abstract class AppDatabase : RoomDatabase() {
                             "• Использую безопасные MCP-коннекторы и локальные ИИ-модели для 100% приватности.\n\n" +
                             "Нажми на микрофон или введи команду, например: «Запланируй встречу в Google Calendar завтра в 15:00» или «Сделай утренний брифинг».",
                     reasoningTrace = "Инициализация агента завершена. Активны 8 навыков и 5 MCP-коннекторов. Режим приватности: локальная обработка данных активна."
+                )
+            )
+
+            // Initial Sample Projects
+            val sampleProjects = listOf(
+                ProjectEntity(
+                    title = "Автоматизация рабочего расписания",
+                    description = "Интеграция корпоративного Outlook с личным Google Calendar, настройка Telegram алертов и авто-брифингов.",
+                    category = "Автоматизация",
+                    status = "IN_PROGRESS",
+                    progressPercent = 65,
+                    taskCount = 6,
+                    completedTaskCount = 4,
+                    tags = "Календарь,MCP,Telegram"
+                ),
+                ProjectEntity(
+                    title = "Безопасное MCP хранилище документов",
+                    description = "Развертывание локального файлового хранилища с шифрованием AES-GCM и синхронизацией через облачный коннектор.",
+                    category = "Безопасность",
+                    status = "PLANNING",
+                    progressPercent = 25,
+                    taskCount = 4,
+                    completedTaskCount = 1,
+                    tags = "Vault,Приватность,S3"
+                ),
+                ProjectEntity(
+                    title = "Интеграция ИИ моделей и Google Auth",
+                    description = "Настройка авторизации по API ключу и через Google Account с гибкой регулировкой температуры ответов.",
+                    category = "ИИ Модели",
+                    status = "IN_PROGRESS",
+                    progressPercent = 80,
+                    taskCount = 5,
+                    completedTaskCount = 4,
+                    tags = "Gemini,Firebase,Auth"
+                )
+            )
+            db.projectDao().insertAllProjects(sampleProjects)
+
+            // Initial Direct Chatbot Message
+            db.directChatMessageDao().insertMessage(
+                DirectChatMessageEntity(
+                    role = "ASSISTANT",
+                    content = "Здравствуйте! Я быстрый диалоговый чат-бот Hermes. Здесь нет агентских цепочек и вызовов внешних инструментов — мы можем быстро обсудить любые вопросы, составить текст, провести мозговой штурм или решить задачу."
                 )
             )
         }

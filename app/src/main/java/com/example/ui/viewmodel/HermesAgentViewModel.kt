@@ -9,31 +9,42 @@ import com.example.service.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+
 enum class AppTab(val title: String) {
-    CHAT("Агент"),
+    AGENT("Агент"),
+    CHAT("Чат"),
+    PROJECTS("Проекты"),
+    SETTINGS("Настройки"),
+    // Drawer destinations:
     SKILLS("Навыки"),
     CALENDAR("Календарь"),
     MCP("MCP Коннекторы"),
-    NOTES_SETTINGS("Заметки & Приватность")
+    NOTES("Заметки")
 }
 
 class HermesAgentViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getInstance(application)
     private val notificationDispatcher = NotificationDispatcher(application)
+    val batteryGovernor = BatteryGovernorManager(application)
     val calendarManager = CalendarIntegrationManager(application, db.calendarEventDao(), notificationDispatcher)
     val voiceManager = VoiceAndSpeechManager(application)
-    val mcpEngine = McpConnectorEngine(db.mcpDao(), notificationDispatcher)
+    val mcpEngine = McpConnectorEngine(db.mcpDao(), notificationDispatcher, batteryGovernor)
     private val nlpEngine = NlpAgentEngine(
         calendarManager = calendarManager,
         noteDao = db.noteDao(),
         skillDao = db.skillDao(),
         mcpEngine = mcpEngine,
-        notificationDispatcher = notificationDispatcher
+        notificationDispatcher = notificationDispatcher,
+        batteryGovernor = batteryGovernor
     )
 
+    val batteryState = batteryGovernor.batteryState
+
     // UI States
-    private val _currentTab = MutableStateFlow(AppTab.CHAT)
+    private val _currentTab = MutableStateFlow(AppTab.AGENT)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
     private val _isProcessing = MutableStateFlow(false)
@@ -61,8 +72,33 @@ class HermesAgentViewModel(application: Application) : AndroidViewModel(applicat
     private val _telegramChatId = MutableStateFlow("")
     val telegramChatId: StateFlow<String> = _telegramChatId.asStateFlow()
 
+    // --- New Settings States ---
+    private val _modelProvider = MutableStateFlow("API_KEY") // "API_KEY" or "GOOGLE_ACCOUNT"
+    val modelProvider: StateFlow<String> = _modelProvider.asStateFlow()
+
+    private val _apiKey = MutableStateFlow("")
+    val apiKey: StateFlow<String> = _apiKey.asStateFlow()
+
+    private val _selectedLanguage = MutableStateFlow("Русский") // "Русский", "English", "Español", "Français", "Українська"
+    val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
+
+    private val _isDarkTheme = MutableStateFlow(true)
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    private val _modelTemperature = MutableStateFlow(0.7f) // 0.0 - 1.0
+    val modelTemperature: StateFlow<Float> = _modelTemperature.asStateFlow()
+
+    private val _firebaseUser = MutableStateFlow<FirebaseUser?>(FirebaseAuth.getInstance().currentUser)
+    val firebaseUser: StateFlow<FirebaseUser?> = _firebaseUser.asStateFlow()
+
     // Data Flows from Room
     val messages: StateFlow<List<AgentMessageEntity>> = db.agentMessageDao().getAllMessages()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val directChatMessages: StateFlow<List<DirectChatMessageEntity>> = db.directChatMessageDao().getAllMessages()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val projects: StateFlow<List<ProjectEntity>> = db.projectDao().getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allSkills: StateFlow<List<SkillEntity>> = db.skillDao().getAllSkills()
@@ -84,6 +120,41 @@ class HermesAgentViewModel(application: Application) : AndroidViewModel(applicat
     val isListening = voiceManager.isListening
     val soundLevel = voiceManager.soundLevel
     val speechError = voiceManager.speechError
+
+    init {
+        FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            _firebaseUser.value = auth.currentUser
+        }
+    }
+
+    fun setModelProvider(provider: String) {
+        _modelProvider.value = provider
+        _statusNotice.value = "Провайдер изменен: ${if (provider == "API_KEY") "Авторизация по API" else "Google Account"}"
+    }
+
+    fun setApiKey(key: String) {
+        _apiKey.value = key
+    }
+
+    fun setSelectedLanguage(lang: String) {
+        _selectedLanguage.value = lang
+        _statusNotice.value = "Язык интерфейса: $lang"
+    }
+
+    fun setDarkTheme(dark: Boolean) {
+        _isDarkTheme.value = dark
+        _statusNotice.value = "Тема изменена: ${if (dark) "Темная" else "Светлая"}"
+    }
+
+    fun setModelTemperature(temp: Float) {
+        _modelTemperature.value = temp.coerceIn(0.0f, 1.0f)
+    }
+
+    fun signOutFirebase() {
+        FirebaseAuth.getInstance().signOut()
+        _firebaseUser.value = null
+        _statusNotice.value = "Вы вышли из Google Account"
+    }
 
     fun setTab(tab: AppTab) {
         _currentTab.value = tab
@@ -337,8 +408,122 @@ class HermesAgentViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun toggleSimulatedLowPower(enabled: Boolean) {
+        batteryGovernor.setSimulatedLowPower(enabled)
+        _statusNotice.value = if (enabled) {
+            "⚡ Режим энергосбережения активирован: тяжелый LLM и MCP-синк приостановлены"
+        } else {
+            "🟢 Обычный режим питания восстановлен: все сервисы активны"
+        }
+    }
+
+    // --- Projects Management ---
+    fun createProject(
+        title: String,
+        description: String,
+        category: String,
+        deadlineMillis: Long = System.currentTimeMillis() + 86400000L * 7,
+        tags: String = "Новый"
+    ) {
+        viewModelScope.launch {
+            val project = ProjectEntity(
+                title = title,
+                description = description,
+                category = category,
+                status = "IN_PROGRESS",
+                progressPercent = 10,
+                deadlineMillis = deadlineMillis,
+                tags = tags
+            )
+            db.projectDao().insertProject(project)
+            _statusNotice.value = "Проект «$title» успешно создан"
+        }
+    }
+
+    fun updateProjectProgress(project: ProjectEntity, newProgress: Int) {
+        viewModelScope.launch {
+            val updated = project.copy(
+                progressPercent = newProgress.coerceIn(0, 100),
+                status = if (newProgress >= 100) "COMPLETED" else "IN_PROGRESS"
+            )
+            db.projectDao().updateProject(updated)
+            _statusNotice.value = "Прогресс проекта обновлен: $newProgress%"
+        }
+    }
+
+    fun deleteProject(id: Long) {
+        viewModelScope.launch {
+            db.projectDao().deleteProjectById(id)
+            _statusNotice.value = "Проект удален"
+        }
+    }
+
+    // --- Direct Chatbot (Чистый чат-бот без агентских инструментов) ---
+    fun sendDirectChatMessage(prompt: String) {
+        val clean = prompt.trim()
+        if (clean.isBlank() || _isProcessing.value) return
+
+        viewModelScope.launch {
+            _isProcessing.value = true
+
+            // Save user message
+            db.directChatMessageDao().insertMessage(
+                DirectChatMessageEntity(
+                    role = "USER",
+                    content = clean
+                )
+            )
+
+            // Direct AI synthesis without agent tool calls or CoT traces
+            val temp = _modelTemperature.value
+            val lang = _selectedLanguage.value
+
+            val reply = when {
+                clean.lowercase().contains("привет") || clean.lowercase().contains("hello") || clean.lowercase().contains("hola") -> {
+                    when (lang) {
+                        "English" -> "Hello! I am your direct AI assistant. How can I assist you today?"
+                        "Español" -> "¡Hola! Soy tu asistente de IA directo. ¿En qué puedo ayudarte hoy?"
+                        "Français" -> "Bonjour ! Je suis votre assistant IA direct. Comment puis-je vous aider aujourd'hui ?"
+                        "Українська" -> "Вітаю! Я ваш прямий діалоговий чат-бот. Чим можу допомогти сьогодні?"
+                        else -> "Здравствуйте! Я ваш прямой диалоговый ИИ-собеседник. Чем могу помочь вам сегодня?"
+                    }
+                }
+                clean.lowercase().contains("проект") || clean.lowercase().contains("project") -> {
+                    "В разделе «Проекты» вы можете отслеживать текущие задачи, дедлайны и статус исполнения. Для автоматизации вы также можете переключиться во вкладку «Агент»."
+                }
+                clean.lowercase().contains("кто ты") || clean.lowercase().contains("who are you") -> {
+                    "Я диалоговая модель чата Hermes (температура: $temp, режим: Прямой диалог). Отвечаю на вопросы, помогаю формулировать тексты и идеи без вызова внешних инструментов."
+                }
+                else -> {
+                    val creativityLevel = if (temp > 0.7f) "высокая креативность" else "точный аналитический фокус"
+                    "Спасибо за вопрос: «$clean».\n\nВот прямой ответ (настройка температуры: $temp, $creativityLevel):\n" +
+                            "1. Ключевая суть: задача сформулирована четко и может быть декомпозирована на несколько логических шагов.\n" +
+                            "2. Рекомендация: используйте структурированный подход для реализации, при необходимости сохранив заметку через боковое меню.\n\n" +
+                            "Готов ответить на любые уточняющие вопросы."
+                }
+            }
+
+            db.directChatMessageDao().insertMessage(
+                DirectChatMessageEntity(
+                    role = "ASSISTANT",
+                    content = reply
+                )
+            )
+
+            _isProcessing.value = false
+        }
+    }
+
+    fun clearDirectChat() {
+        viewModelScope.launch {
+            db.directChatMessageDao().clearMessages()
+            _statusNotice.value = "История чата очищена"
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         voiceManager.release()
+        batteryGovernor.destroy()
     }
 }

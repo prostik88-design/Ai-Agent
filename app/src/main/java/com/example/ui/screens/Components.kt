@@ -26,12 +26,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 
+import com.example.service.BatteryState
+
 @Composable
 fun AgentHeader(
     isLocalOnly: Boolean,
     activeMcpCount: Int,
     isProcessing: Boolean,
-    onPrivacyToggle: () -> Unit
+    batteryState: BatteryState,
+    onPrivacyToggle: () -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
     Surface(
         color = AgentSurfaceDark,
@@ -44,7 +48,7 @@ fun AgentHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -53,8 +57,19 @@ fun AgentHeader(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    IconButton(
+                        onClick = onOpenDrawer,
+                        modifier = Modifier.size(36.dp).testTag("open_drawer_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Боковое меню",
+                            tint = AgentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                     // Pulsing status dot
                     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
                     val pulseScale by infiniteTransition.animateFloat(
@@ -140,27 +155,41 @@ fun AgentHeader(
                         }
                     }
 
+                    // Battery Badge
+                    val batteryColor = when {
+                        batteryState.isCharging -> AgentCyan
+                        batteryState.isSuspended -> AgentAmber
+                        batteryState.levelPercent <= 20 -> AgentRed
+                        else -> AgentEmerald
+                    }
+                    val batteryIcon = when {
+                        batteryState.isCharging -> Icons.Default.BatteryChargingFull
+                        batteryState.isSuspended || batteryState.levelPercent <= 20 -> Icons.Default.BatteryAlert
+                        else -> Icons.Default.BatteryStd
+                    }
+
                     Surface(
-                        color = AgentSurfaceVariantDark,
+                        color = batteryColor.copy(alpha = 0.15f),
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.border(1.dp, AgentCardStrokeDark, RoundedCornerShape(12.dp))
+                        modifier = Modifier.border(1.dp, batteryColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Hub,
-                                contentDescription = null,
-                                tint = AgentEmerald,
+                                imageVector = batteryIcon,
+                                contentDescription = "Статус батареи",
+                                tint = batteryColor,
                                 modifier = Modifier.size(12.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "$activeMcpCount MCP",
-                                color = AgentEmerald,
+                                text = "${batteryState.levelPercent}%",
+                                color = batteryColor,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
                             )
                         }
                     }
@@ -305,6 +334,242 @@ fun HermesReasoningAccordion(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LowPowerStatusBar(
+    batteryState: BatteryState,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = batteryState.isSuspended,
+        modifier = modifier
+    ) {
+        Surface(
+            color = AgentAmber.copy(alpha = 0.15f),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .border(1.dp, AgentAmber.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+        ) {
+            Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BatteryAlert,
+                    contentDescription = null,
+                    tint = AgentAmber,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "⚡ РЕЖИМ ЭНЕРГОСБЕРЕЖЕНИЯ (${batteryState.levelPercent}%)",
+                        color = AgentAmber,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "Фоновые процессы локального LLM и MCP-синк приостановлены. Срочные события календаря активны.",
+                        color = AgentTextSecondary,
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BatteryTelemetryCard(
+    batteryState: BatteryState,
+    onToggleSimulatedLowPower: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val barColor = when {
+        batteryState.isCharging -> AgentCyan
+        batteryState.isSuspended -> AgentAmber
+        batteryState.levelPercent <= 20 -> AgentRed
+        else -> AgentEmerald
+    }
+
+    Surface(
+        color = AgentSurfaceDark,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                if (batteryState.isSuspended) AgentAmber.copy(alpha = 0.6f) else AgentCardStrokeDark,
+                RoundedCornerShape(14.dp)
+            )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (batteryState.isCharging) Icons.Default.BatteryChargingFull else Icons.Default.BatteryStd,
+                        contentDescription = null,
+                        tint = barColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "ДИАГНОСТИКА БАТАРЕИ & СЛУЖБ",
+                            color = AgentTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = if (batteryState.isCharging) "Идет зарядка" else if (batteryState.isSuspended) "Энергосбережение включено" else "Обычный режим",
+                            color = barColor,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    color = barColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "${batteryState.levelPercent}%",
+                        color = barColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Linear Progress Bar
+            LinearProgressIndicator(
+                progress = { (batteryState.levelPercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = barColor,
+                trackColor = AgentSurfaceVariantDark
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Task State Matrix
+            Text(
+                text = "СОСТОЯНИЕ ФОНОВЫХ ПРОЦЕССОВ:",
+                color = AgentTextTertiary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            TaskStatusRow(
+                title = "🧠 Локальные процессы LLM",
+                status = if (batteryState.isSuspended) "ПРИОСТАНОВЛЕН" else "АКТИВЕН",
+                isActive = !batteryState.isSuspended
+            )
+            TaskStatusRow(
+                title = "🔄 Фоновая синхронизация MCP",
+                status = if (batteryState.isSuspended) "ПАУЗА" else "АКТИВЕН",
+                isActive = !batteryState.isSuspended
+            )
+            TaskStatusRow(
+                title = "⏰ Срочные уведомления календаря",
+                status = "ЗАЩИЩЕНЫ (АКТИВНЫ)",
+                isActive = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Divider(color = AgentCardStrokeDark, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Simulation Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Симуляция низкого заряда (<20%)",
+                        color = AgentTextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Проверить остановку LLM и MCP в эмуляторе",
+                        color = AgentTextTertiary,
+                        fontSize = 10.sp
+                    )
+                }
+
+                Switch(
+                    checked = batteryState.isSimulatedLowPower,
+                    onCheckedChange = onToggleSimulatedLowPower,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = AgentVoidDark,
+                        checkedTrackColor = AgentAmber,
+                        uncheckedThumbColor = AgentTextTertiary,
+                        uncheckedTrackColor = AgentSurfaceVariantDark
+                    ),
+                    modifier = Modifier.testTag("toggle_battery_simulation")
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskStatusRow(
+    title: String,
+    status: String,
+    isActive: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            color = AgentTextSecondary,
+            fontSize = 11.sp
+        )
+        Surface(
+            color = if (isActive) AgentEmerald.copy(alpha = 0.15f) else AgentAmber.copy(alpha = 0.15f),
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = status,
+                color = if (isActive) AgentEmerald else AgentAmber,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
         }
     }
 }

@@ -147,3 +147,33 @@ interface AgentTaskDao {
     @Delete
     suspend fun deleteTask(task: AgentTaskEntity)
 }
+
+@Dao
+interface ProjectDao {
+    @Query("SELECT * FROM projects ORDER BY createdAtMillis DESC")
+    fun getAllProjects(): Flow<List<ProjectEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProject(project: ProjectEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllProjects(projects: List<ProjectEntity>)
+
+    @Update
+    suspend fun updateProject(project: ProjectEntity)
+
+    @Query("DELETE FROM projects WHERE id = :id")
+    suspend fun deleteProjectById(id: Long)
+}
+
+@Dao
+interface DirectChatMessageDao {
+    @Query("SELECT * FROM direct_chat_messages ORDER BY timestamp ASC")
+    fun getAllMessages(): Flow<List<DirectChatMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessage(message: DirectChatMessageEntity): Long
+
+    @Query("DELETE FROM direct_chat_messages")
+    suspend fun clearMessages()
+}

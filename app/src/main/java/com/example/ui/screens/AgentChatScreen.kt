@@ -35,6 +35,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.service.BatteryState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentChatScreen(
@@ -43,6 +45,7 @@ fun AgentChatScreen(
     isListening: Boolean,
     soundLevel: Float,
     speechError: String?,
+    batteryState: BatteryState,
     onSendMessage: (String, Boolean) -> Unit,
     onStartVoice: () -> Unit,
     onStopVoice: () -> Unit,
@@ -104,6 +107,9 @@ fun AgentChatScreen(
                 )
             }
         }
+
+        // Low power notification banner
+        LowPowerStatusBar(batteryState = batteryState)
 
         // Speech error alert if any
         AnimatedVisibility(visible = speechError != null) {

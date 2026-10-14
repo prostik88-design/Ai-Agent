@@ -24,7 +24,8 @@ data class McpToolResult(
 
 class McpConnectorEngine(
     private val mcpDao: McpDao,
-    private val notificationDispatcher: NotificationDispatcher
+    private val notificationDispatcher: NotificationDispatcher,
+    private val batteryGovernor: BatteryGovernorManager? = null
 ) {
 
     fun getAllServers(): Flow<List<McpServerEntity>> = mcpDao.getAllServers()
@@ -74,7 +75,12 @@ class McpConnectorEngine(
                 }
                 "read_file", "write_file", "sync_cloud" -> {
                     val path = request.arguments["path"]?.toString() ?: "/vault/notes.md"
-                    """{"status": "VAULT_SYNCED", "path": "$path", "integrity": "SHA256_VALIDATED", "encryption": "AES_GCM_256"}"""
+                    val isBackground = request.arguments["is_background"] as? Boolean ?: (request.toolName == "sync_cloud")
+                    if (isBackground && batteryGovernor?.isTaskExecutionAllowed(AgentTaskCategory.MCP_BACKGROUND_SYNC) == false) {
+                        """{"status": "SUSPENDED_LOW_POWER", "path": "$path", "message": "Фоновая синхронизация отложена для сохранения заряда аккумулятора (<20% / Энергосбережение)", "retryWhenCharged": true}"""
+                    } else {
+                        """{"status": "VAULT_SYNCED", "path": "$path", "integrity": "SHA256_VALIDATED", "encryption": "AES_GCM_256"}"""
+                    }
                 }
                 else -> {
                     """{"status": "EXECUTED", "tool": "${request.toolName}", "result": "Успешно обработано MCP сервером $serverName"}"""

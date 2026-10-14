@@ -26,7 +26,8 @@ class NlpAgentEngine(
     private val noteDao: NoteDao,
     private val skillDao: SkillDao,
     private val mcpEngine: McpConnectorEngine,
-    private val notificationDispatcher: NotificationDispatcher
+    private val notificationDispatcher: NotificationDispatcher,
+    private val batteryGovernor: BatteryGovernorManager? = null
 ) {
 
     // Multi-turn context memory
@@ -47,10 +48,15 @@ class NlpAgentEngine(
         val responseText: String
         val spokenText: String
 
+        val isLowPowerSuspended = batteryGovernor?.isTaskExecutionAllowed(AgentTaskCategory.LOCAL_LLM_HEAVY_INFERENCE) == false
+
         // Hermes Thought Step 1
         reasoningBuilder.appendLine("💭 [HERMES REASONING TRACE]")
         reasoningBuilder.appendLine("1. Анализ запроса: «$cleanPrompt»")
         reasoningBuilder.appendLine("2. Режим обработки: ${if (useLocalEngineOnly) "100% Локальный ИИ (Zero-Telemetry Privacy Engine)" else "Гибридный ИИ / MCP"}")
+        if (isLowPowerSuspended) {
+            reasoningBuilder.appendLine("   ⚡ [ЭНЕРГОСБЕРЕЖЕНИЕ]: Уровень заряда <= 20% или включен режим Power Saver. Фоновые процессы LLM и фоновый MCP-синк приостановлены. Срочные события календаря активны.")
+        }
 
         // 1. Calendar: CREATE EVENT
         if (isCreateCalendarIntent(lower)) {

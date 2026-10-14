@@ -98,3 +98,26 @@ data class AgentTaskEntity(
     val nextRunMillis: Long = 0L,
     val lastStatus: String = "IDLE"
 )
+
+@Entity(tableName = "projects")
+data class ProjectEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val description: String,
+    val category: String = "Разработка",
+    val status: String = "IN_PROGRESS", // "PLANNING", "IN_PROGRESS", "COMPLETED"
+    val progressPercent: Int = 35,
+    val deadlineMillis: Long = System.currentTimeMillis() + 86400000L * 7,
+    val taskCount: Int = 5,
+    val completedTaskCount: Int = 2,
+    val tags: String = "AI,MCP,Automation",
+    val createdAtMillis: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "direct_chat_messages")
+data class DirectChatMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val role: String, // "USER", "ASSISTANT"
+    val content: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
