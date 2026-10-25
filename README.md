@@ -1,11 +1,5 @@
 Hermes Agent: Personal Process Automation Assistant
 
-https://img.shields.io/badge/version-2.0.0-blue.svg
-https://img.shields.io/badge/status-active-success.svg
-https://img.shields.io/badge/license-MIT-green.svg
-https://img.shields.io/badge/python-3.10%2B-blue.svg
-https://img.shields.io/badge/MCP-compatible-purple.svg
-
 Hermes Agent — персональный ассистент автоматизации процессов. Оркестратор многошаговых конвейеров задач, синхронизации календаря в реальном времени, проактивных рутин и цепочек MCP-действий — с телеметрией батареи и энергопотребления в роли вторичного фонового оптимизатора.
 
 ---
