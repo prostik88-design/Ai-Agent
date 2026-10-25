@@ -121,3 +121,33 @@ data class DirectChatMessageEntity(
     val content: String,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "automation_workflows")
+data class AutomationWorkflowEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val description: String,
+    val category: String = "ROUTINE", // "ROUTINE", "CALENDAR", "NOTES", "MCP", "OPTIMIZER"
+    val triggerType: String, // "TIME_SCHEDULE", "CALENDAR_EVENT", "BATTERY_OPTIMIZER", "MANUAL", "VOICE_COMMAND"
+    val triggerValue: String, // e.g. "Ежедневно в 09:00", "За 15 мин до встречи", "Заряд <= 20%", "По запросу"
+    val actionsSummary: String, // e.g. "Календарь ➔ Заметки ➔ Telegram"
+    val actionsJson: String = "[]",
+    val isEnabled: Boolean = true,
+    val lastRunMillis: Long? = null,
+    val lastRunStatus: String = "IDLE", // "SUCCESS", "RUNNING", "WARNING", "SKIPPED_LOW_POWER"
+    val executionCount: Int = 0,
+    val createdAtMillis: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "workflow_execution_logs")
+data class WorkflowExecutionLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val workflowId: Long,
+    val workflowTitle: String,
+    val executedAtMillis: Long = System.currentTimeMillis(),
+    val status: String, // "SUCCESS", "WARNING", "FAILED", "SKIPPED_LOW_POWER"
+    val durationMs: Long = 320L,
+    val summary: String,
+    val batteryStateInfo: String = ""
+)
+

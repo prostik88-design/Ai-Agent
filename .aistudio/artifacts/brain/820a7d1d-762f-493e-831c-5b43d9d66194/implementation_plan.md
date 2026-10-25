@@ -1,99 +1,146 @@
-# Hermes Agent: Battery Usage Monitor & Low-Power Background Service Manager
+# Hermes Agent: Personal Process Automation Assistant
 
-An intelligent energy-aware background service manager for Hermes Agent that actively monitors battery level and Android system power-save states, automatically suspending heavy on-device LLM processing and background MCP synchronization tasks during low power conditions while preserving critical calendar meeting alerts.
-
-### User Review & Critical Decisions
-
-> [!IMPORTANT]
-> The architectural design directly integrates the three user preferences gathered during Phase 1:
-> - **Selective Task Suspension**: Local LLM heavy inferences and background MCP sync tasks are suspended; critical calendar reminders and urgent meeting alerts are explicitly protected and kept active.
-> - **Trigger Condition**: Low-power state triggers when Android OS reports `PowerManager.isPowerSaveMode == true` OR device battery level drops below 20% (and is not charging), with an interactive simulator switch for testing.
-> - **UI Surface**: A dedicated Battery & Resource Telemetry Card with an active status banner, real-time battery diagnostics, and a list of suspended vs. protected background services.
+Transitioning the core specialization and persona of Hermes Agent from a dedicated battery monitor to a **Personal Process Automation Assistant (Персональный ассистент автоматизации процессов)**. The agent focuses on orchestrating multi-step task pipelines, continuous calendar synchronization, proactive routines, and MCP action chaining, while retaining battery and low-power telemetry as a secondary background optimizer in Agent Settings.
 
 ---
 
-### 1. Overview & Core Concept
+### User Review & Decisions Integration
 
-- **What It Does**: The `BatteryManagerService` acts as the power governor for the Hermes Agent engine. It tracks battery percentage, charging state, thermal pressure, and OS power-saver mode via a broadcast receiver and `PowerManager` hooks. When entering low-power mode, the manager immediately dispatches suspension signals to the local NLP engine and MCP sync routines, reducing CPU cycles and background network wake-locks.
-- **Target Audience / Persona**: Mobile professionals and autonomous agent users who rely on Hermes Agent throughout the day and need guarantee that on-device AI tasks will not exhaust device battery or interrupt critical schedule alerts.
-- **Key Value**: Protects device battery longevity and eliminates unwanted background battery drain without compromising schedule reliability or meeting attendance.
+> [!IMPORTANT]
+> The architectural design directly integrates the three user preferences confirmed during Phase 1:
+> 1. **Primary Focus**: Task pipelines, calendar sync (Google & Outlook), and automated routines (e.g. morning briefings, post-meeting note summaries, Telegram/MCP alerts).
+> 2. **UI Presentation**: Visual workflow cards with triggers, chained actions, execution toggles, and execution run history.
+> 3. **Telemetry Treatment**: Battery and low-power telemetry are preserved as a secondary background optimizer in the **Agent Settings** submenu (`Настройки агента`), rather than dominating the primary persona.
+
+---
+
+### 1. Overview & New Agent Persona
+
+- **Specialization**: **Personal Process Automation Assistant**
+  - **Role**: Proactively manages daily work routines, orchestrates cross-service pipelines (Calendar ➔ Notes ➔ Telegram ➔ Web Search ➔ MCP tools), and schedules automated tasks based on triggers (time, calendar events, battery state, or on-demand voice/text commands).
+  - **Autonomous Execution Engine**: Chains actions together in structured pipelines with clear visual states and auditable logs.
+  - **Secondary Optimizer**: If the device enters low-power mode (system battery saver or <= 20%), the background execution engine automatically throttles heavy periodic syncs while ensuring critical calendar alerts and high-priority workflows run safely.
 
 ---
 
 ### 2. User Experience & Visual Design
 
-- **Key User Flows**:
-  1. *Normal Operation Flow*: Battery card in the "Заметки & Приватность" (and Agent Overview) shows "Battery Healthy (85%) • Full Autonomous Mode". All MCP services and LLM tasks run without throttles.
-  2. *Low-Power Trigger Flow*: Device battery drops to 19% or user enables system battery saver. An amber/cyan high-tech banner appears: `⚡ ЭНЕРГОСБЕРЕЖЕНИЕ АКТИВНО: Локальный LLM и синхронизация MCP приостановлены. Срочные уведомления календаря работают штатно.`
-  3. *Simulation & Control Flow*: In the telemetry dashboard, users can toggle "Режим симуляции низкого заряда (Demo Mode)" to verify that suspension behavior triggers immediately and see the live state change without having to drain their device.
-  4. *Recovery Flow*: Plugging in the charger or turning off battery saver automatically restores background jobs, resuming pending synchronizations and logging the recovery event to the MCP audit trail.
+#### A. Main Header & Status Indicator (`Components.kt`)
+- Title: **HERMES • AUTOMATION CORE**
+- Subtitle: `⚡ 3 активных пайплайна • Автономный режим` (or status of currently executing workflow).
+- Badges:
+  - Automation Pipelines count indicator chip (e.g., `3 РУТИНЫ АКТИВНЫ`).
+  - Privacy indicator chip (`LOCAL AI` / `HYBRID`).
+  - Compact battery status indicator (`85% ⚡` / `20% ⚠️`) with click-through or reference to Settings.
 
-- **Visual Identity & Theme**:
-  - Consistent with the Hermes cybernetic dark aesthetic (`#0A0E17` void black, glowing cyan `#00E5FF`, warning amber `#FFB300`, and emerald `#00E676`).
-  - *Battery Telemetry Card*: High-contrast card with custom battery meter bar, percentage readout, charging bolt icon, power save mode badge, and service status chips (`LLM: ПРИОСТАНОВЛЕН`, `MCP Sync: ПАУЗА`, `Календарь: АКТИВЕН`).
-  - *Status Banner*: Striking warning-tinted banner at the top of the chat and settings view when power-saving suspension is active.
+#### B. Projects & Workflows Screen (`ProjectsScreen.kt`)
+- Tabbed or unified view: **"ПРОЕКТЫ"** and **"ЦЕПОЧКИ АВТОМАТИЗАЦИИ (WORKFLOWS)"**:
+  - **Visual Workflow Card**:
+    - **Header**: Workflow Name, Category icon, and Enable/Disable toggle switch.
+    - **Trigger Section**: `[ ⏰ Триггер ]` (e.g., `Каждый день в 09:00`, `За 15 мин до встречи`, `По голосовой команде`).
+    - **Pipeline Action Steps**: Visual flow diagram chips:
+      `[ 📅 Проверить Google Календарь ] ➔ [ 📝 Сформировать бриф в Заметках ] ➔ [ ✈️ Отправить в Telegram ]`
+    - **Footer**: Last executed timestamp (e.g., `Сегодня, 09:00`), Run status (`✅ Успешно`, `⏱️ 420 мс`), and "Запустить сейчас" (Run Now) quick button.
+  - **Execution History Modal / Bottom Sheet**:
+    - Detailed run history for each workflow (timestamp, duration in ms, steps completed, battery state during run, and output summary).
+  - **Pre-configured Starter Automations**:
+    1. *«Утренний брифинг & Планирование»*: Сканирует встречи на день из Google/Outlook и генерирует краткий список дел в Заметках.
+    2. *«Синхронизация рабочих заметок с MCP»*: Периодическая проверка несохраненных заметок и отправка важных заметок во внешние каналы.
+    3. *«Power Optimizer Guard»*: Автоматический перевод тяжелых пайплайнов в щадящий режим при заряде аккумулятора ниже 20%.
+    4. *«Анализ предстоящих встреч»*: За 15 минут до начала календарного события готовит контекст и выводит уведомление.
+
+#### C. Settings Screen (`SettingsScreen.kt`)
+- In **Section 5: "Подменю: Настройки агента"**:
+  - Clear heading: **«Вторичный оптимизатор питания и ресурсов (Power Optimizer)»**.
+  - Battery telemetry card, low-power simulation switch, and task suspension matrix remain fully functional here as an agent governor setting.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
+### 3. Architecture & Technical Strategy
 
-- **Decision 1: Selective Suspension vs. Complete Agent Shutdown**
-  - *Chosen Approach*: Allow urgent calendar alerts and notification alarms to proceed; suspend continuous NLP agent reasoning, repetitive MCP background fetches, and cloud sync loops.
-  - *Why*: Ensures the user never misses an important meeting or appointment while eliminating 95%+ of CPU and background network wakeups.
-  - *Alternatives Considered*: Complete termination of all background processes was rejected because missing calendar alerts undermines the primary executive assistant function.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Hermes NLP Agent Engine                         │
+│   • Persona: Personal Process Automation Assistant                     │
+│   • Multi-step Pipeline Planner & Workflow Dispatcher                  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+               ┌────────────────────┼────────────────────┐
+               ▼                    ▼                    ▼
+   ┌───────────────────────┐ ┌─────────────┐ ┌──────────────────────┐
+   │ Automation Workflows  │ │  Calendar   │ │  MCP Tools & System  │
+   │ & Routines Engine     │ │ Integration │ │ (Telegram, Notes,    │
+   │ (Trigger ➔ Action)    │ │ (GCal/MSft) │ │  Battery Optimizer)  │
+   └───────────┬───────────┘ └──────┬──────┘ └──────────┬───────────┘
+               │                    │                   │
+               ▼                    ▼                   ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │             Room Database & Execution Audit History            │
+   │   • AutomationWorkflowEntity                                   │
+   │   • WorkflowExecutionLogEntity                                 │
+   └────────────────────────────────────────────────────────────────┘
+```
 
-- **Decision 2: Dual Triggering Logic (OS Power-Save + Battery Threshold < 20%)**
-  - *Chosen Approach*: React both to Android `ACTION_POWER_SAVE_MODE_CHANGED` and `ACTION_BATTERY_CHANGED` (threshold <= 20% while discharging), with a manual testing override.
-  - *Why*: Some Android OEM skins don't aggressively enable power-save mode until 15% or 5%, whereas heavy local LLM inference can cause rapid thermal and voltage drops if allowed to run freely at 19%.
+#### New / Updated Data Entities:
+1. `AutomationWorkflowEntity`:
+   - `id: Long = 0` (Primary Key)
+   - `title: String`
+   - `description: String`
+   - `triggerType: String` (`SCHEDULE`, `CALENDAR_EVENT`, `BATTERY_CHANGE`, `MANUAL`)
+   - `triggerValue: String`
+   - `actionsJson: String` (list of pipeline step definitions)
+   - `isEnabled: Boolean = true`
+   - `lastRunMillis: Long? = null`
+   - `lastRunStatus: String = "IDLE"`
+   - `executionCount: Int = 0`
 
-- **Decision 3: Reactive StateFlow Governor vs. Heavy Background Android WorkManager**
-  - *Chosen Approach*: In-memory reactive `BatteryGovernor` exposed through ViewModel as `StateFlow<BatteryState>`, bound to a BroadcastReceiver registered in `MainActivity` / Application scope.
-  - *Why*: Instant UI reactivity, zero additional APK bloat, immediate suspension of ongoing coroutines in `NlpAgentEngine` and `McpConnectorEngine`.
+2. `WorkflowExecutionLogEntity`:
+   - `id: Long = 0` (Primary Key)
+   - `workflowId: Long`
+   - `workflowTitle: String`
+   - `executedAt: Long`
+   - `status: String` (`SUCCESS`, `WARNING`, `FAILED`, `SKIPPED_LOW_POWER`)
+   - `summary: String`
+   - `durationMs: Long`
+
+3. Database & DAOs:
+   - `AutomationWorkflowDao` (queries for active workflows, toggling enabled state, recording runs).
+   - `WorkflowExecutionLogDao` (inserting execution logs, retrieving history per workflow).
+   - Update `AppDatabase` with pre-populated starter automations.
+
+#### NLP Agent Engine Updates (`NlpAgentEngine.kt`):
+- System prompt & persona updated:
+  - From: `"Hermes Battery Usage Monitor & Low-Power Background Service Manager"`
+  - To: `"Hermes Personal Process Automation Assistant (Персональный ассистент автоматизации процессов и рабочих пайплайнов)"`
+- Recognizes automation intents:
+  - `AUTOMATION_RUN`: Запуск пайплайна по названию или ID.
+  - `AUTOMATION_CREATE`: Создание новой рутины автоматизации через диалог или голос.
+  - `AUTOMATION_STATUS`: Запрос статуса активных процессов и истории их выполнения.
+- Connects execution to real data (triggering notes creation, calendar queries, Telegram alerts).
 
 ---
 
-### 4. Technical Architecture & Data Strategy *(Technical Reference)*
+### 4. Step-by-Step Implementation Sequence
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Android OS                            │
-│  [BatteryManager] ─── [PowerManager] ─── [BroadcastReceiver]│
-└──────────────────────────────┬──────────────────────────────┘
-                               │ ACTION_BATTERY_CHANGED
-                               │ ACTION_POWER_SAVE_MODE_CHANGED
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 BatteryGovernorManager                      │
-│  - Tracks: level, isCharging, isPowerSave, isSimulated      │
-│  - Evaluates: isLowPowerMode = isPowerSave || (lvl <= 20)   │
-│  - Emits: StateFlow<BatteryStatus>                          │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-      Suspension Signal              Status Updates
-               │                              │
-               ▼                              ▼
-┌──────────────────────────────┐ ┌───────────────────────────┐
-│        Agent Engines         │ │   UI Telemetry Dashboard  │
-│  • NlpAgentEngine            │ │  • Battery Telemetry Card │
-│    [Local LLM Paused]        │ │  • Low-Power Alert Banner │
-│  • McpConnectorEngine        │ │  • Task State Matrix:     │
-│    [Background Sync Paused]  │ │    - LLM: Paused          │
-│  • CalendarManager           │ │    - MCP Sync: Paused     │
-│    [ALERTS PROTECTED & ON]   │ │    - Calendar: Active     │
-└──────────────────────────────┘ └───────────────────────────┘
-```
+1. **Step 1: Data Models & Room Schema**
+   - Create `com.example.data.model.AutomationWorkflowEntity` and `WorkflowExecutionLogEntity`.
+   - Create `com.example.data.dao.AutomationWorkflowDao` and `WorkflowExecutionLogDao`.
+   - Register new entities and DAOs in `AppDatabase.kt` and bump database version or provide fallback migration with starter automation data.
 
-- **Core Components to Add / Enhance**:
-  1. `com.example.service.BatteryGovernorManager`:
-     - BroadcastReceiver monitoring `ACTION_BATTERY_CHANGED`, `ACTION_POWER_CONNECTED`, `ACTION_POWER_DISCONNECTED`, and `ACTION_POWER_SAVE_MODE_CHANGED`.
-     - Exposes `batteryState: StateFlow<BatteryState>` (`levelPercent: Int`, `isCharging: Boolean`, `isPowerSaveMode: Boolean`, `isLowPowerSuspended: Boolean`, `simulatedLowPower: Boolean`).
-     - Methods: `setSimulatedLowPower(enabled: Boolean)`.
-  2. `com.example.service.NlpAgentEngine`:
-     - Injects check before heavy background local inference: if `batteryGovernor.isLowPowerSuspended.value`, defers heavy background tasks and provides informative low-power notice while answering direct queries concisely.
-  3. `com.example.service.McpConnectorEngine`:
-     - Guards scheduled background sync tools (`sync_cloud`, heavy periodic web fetches): gracefully defers them during low-power mode, while allowing manual on-demand execution.
-  4. `com.example.service.CalendarIntegrationManager`:
-     - Explicitly whitelisted: all meeting alerts, upcoming schedule reminders, and intent dispatches remain fully functional.
-  5. `com.example.ui.screens.NotesAndSettingsScreen` & `AgentChatScreen`:
-     - Add `BatteryTelemetryCard` showing live percentage, charging status, power-save mode, task matrix, and simulation toggle.
-     - Add `LowPowerStatusBar` at the top of the Agent interface when power-saving is engaged.
+2. **Step 2: Service Layer & NLP Engine**
+   - Update `NlpAgentEngine.kt` persona and reasoning logs to reflect Personal Process Automation.
+   - Add pipeline execution runner logic that processes steps (e.g. checking calendars, writing notes, notifying via Telegram/system notification).
+   - Maintain battery governor as an execution constraint: if low power is active, heavy background sync steps are safely deferred.
+
+3. **Step 3: ViewModel Integration (`HermesAgentViewModel.kt`)**
+   - Expose `automationWorkflows: StateFlow<List<AutomationWorkflowEntity>>` and `executionLogs: StateFlow<List<WorkflowExecutionLogEntity>>`.
+   - Add methods: `toggleWorkflow(id)`, `executeWorkflow(id)`, `createWorkflow(...)`, `deleteWorkflow(id)`.
+
+4. **Step 4: UI Updates**
+   - **`Components.kt`**: Update `AgentHeader` title, subtitle, and badges to highlight active automation routines and process status.
+   - **`ProjectsScreen.kt`**: Implement visual workflow cards with trigger chips, action sequence arrows, "Запустить" button, and execution history bottom sheet.
+   - **`SettingsScreen.kt`**: Clarify that battery telemetry in the agent submenu operates as a secondary background optimizer.
+
+5. **Step 5: Compilation & Verification**
+   - Run `compile_applet` to verify zero compiler errors or missing symbols.
+   - Ensure UI previews and tests compile smoothly.

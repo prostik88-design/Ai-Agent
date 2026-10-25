@@ -21,9 +21,11 @@ import kotlinx.coroutines.launch
         AgentMessageEntity::class,
         AgentTaskEntity::class,
         ProjectEntity::class,
-        DirectChatMessageEntity::class
+        DirectChatMessageEntity::class,
+        AutomationWorkflowEntity::class,
+        WorkflowExecutionLogEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +38,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agentTaskDao(): AgentTaskDao
     abstract fun projectDao(): ProjectDao
     abstract fun directChatMessageDao(): DirectChatMessageDao
+    abstract fun automationWorkflowDao(): AutomationWorkflowDao
+    abstract fun workflowExecutionLogDao(): WorkflowExecutionLogDao
 
     companion object {
         @Volatile
@@ -292,13 +296,13 @@ abstract class AppDatabase : RoomDatabase() {
             db.agentMessageDao().insertMessage(
                 AgentMessageEntity(
                     role = "ASSISTANT",
-                    content = "Привет! Я Hermes — твой персональный автономный ИИ-агент.\n\n" +
-                            "• Я автоматизирую задачи и управляю расписанием.\n" +
-                            "• Поддерживаю голосовые команды на естественном языке.\n" +
-                            "• Полностью интегрирован с Google Calendar и Outlook Calendar.\n" +
-                            "• Использую безопасные MCP-коннекторы и локальные ИИ-модели для 100% приватности.\n\n" +
-                            "Нажми на микрофон или введи команду, например: «Запланируй встречу в Google Calendar завтра в 15:00» или «Сделай утренний брифинг».",
-                    reasoningTrace = "Инициализация агента завершена. Активны 8 навыков и 5 MCP-коннекторов. Режим приватности: локальная обработка данных активна."
+                    content = "Привет! Я Hermes — твой персональный ассистент автоматизации процессов (Personal Process Automation Assistant).\n\n" +
+                            "• ⚡ Оркестрирую рабочие пайплайны, задачи и повторяющиеся рутины.\n" +
+                            "• 📅 Полностью синхронизирован с Google Calendar и Outlook Calendar.\n" +
+                            "• 🔌 Запускаю внешние действия через MCP-коннекторы (Telegram, Cloud Vault, Web).\n" +
+                            "• 🔋 Вторичный оптимизатор питания контролирует энергопотребление и защищает календарь.\n\n" +
+                            "Нажми на микрофон или введи команду, например: «Запусти утренний брифинг», «Запланируй встречу в Google Calendar завтра в 15:00» или перейди во вкладку «Проекты» для настройки пайплайнов.",
+                    reasoningTrace = "Инициализация агента завершена. Активны 4 рабочих пайплайна, 8 навыков и 5 MCP-коннекторов. Специализация: Personal Process Automation Assistant."
                 )
             )
 
@@ -344,6 +348,124 @@ abstract class AppDatabase : RoomDatabase() {
                     content = "Здравствуйте! Я быстрый диалоговый чат-бот Hermes. Здесь нет агентских цепочек и вызовов внешних инструментов — мы можем быстро обсудить любые вопросы, составить текст, провести мозговой штурм или решить задачу."
                 )
             )
+
+            // Initial Automation Workflows (Pipelines)
+            val sampleWorkflows = listOf(
+                AutomationWorkflowEntity(
+                    id = 1,
+                    title = "Утренний брифинг & Расписание дня",
+                    description = "Синхронизирует встречи из Google и Outlook календарей, извлекает задачи и формирует дайджест в Заметках с отправкой в Telegram.",
+                    category = "CALENDAR",
+                    triggerType = "TIME_SCHEDULE",
+                    triggerValue = "Ежедневно в 09:00",
+                    actionsSummary = "Google/Outlook ➔ Дайджест в Заметки ➔ Telegram",
+                    actionsJson = "[\"Синхронизация Google & Outlook календарей\", \"Генерация утренней сводки встреч\", \"Создание заметки-брифинга\", \"Отправка краткого анонса в Telegram\"]",
+                    isEnabled = true,
+                    lastRunMillis = now - 3600000L * 2,
+                    lastRunStatus = "SUCCESS",
+                    executionCount = 14
+                ),
+                AutomationWorkflowEntity(
+                    id = 2,
+                    title = "Синхронизация рабочих заметок & MCP Vault",
+                    description = "Автоматически сканирует новые заметки, выделяет назначенные действия (Action Items) и выполняет резервную выгрузку в защищенное MCP хранилище.",
+                    category = "NOTES",
+                    triggerType = "TIME_SCHEDULE",
+                    triggerValue = "Каждые 3 часа",
+                    actionsSummary = "Анализ заметок ➔ Action Items ➔ MCP Cloud Vault",
+                    actionsJson = "[\"Поиск несохраненных заметок\", \"Извлечение чек-листа действий\", \"Шифрование и синхронизация в MCP Vault\"]",
+                    isEnabled = true,
+                    lastRunMillis = now - 3600000L * 1,
+                    lastRunStatus = "SUCCESS",
+                    executionCount = 28
+                ),
+                AutomationWorkflowEntity(
+                    id = 3,
+                    title = "Подготовка контекста к встречам",
+                    description = "За 15 минут до любого запланированного события собирает историю переписки, связанные заметки и выводит уведомление с повесткой.",
+                    category = "ROUTINE",
+                    triggerType = "CALENDAR_EVENT",
+                    triggerValue = "За 15 мин до начала события",
+                    actionsSummary = "Поиск контекста встречи ➔ Синтез темы ➔ Push алерт",
+                    actionsJson = "[\"Мониторинг ближайших событий календаря\", \"Поиск релевантных заметок по ключевым словам\", \"Отправка всплывающего уведомления с повесткой\"]",
+                    isEnabled = true,
+                    lastRunMillis = now - 3600000L * 4,
+                    lastRunStatus = "SUCCESS",
+                    executionCount = 9
+                ),
+                AutomationWorkflowEntity(
+                    id = 4,
+                    title = "Фоновый оптимизатор питания (Power Guard)",
+                    description = "При падении заряда аккумулятора <= 20% или переходе в режим Power Saver безопасно приостанавливает тяжелые LLM-пайплайны, сохраняя все срочные алерты.",
+                    category = "OPTIMIZER",
+                    triggerType = "BATTERY_OPTIMIZER",
+                    triggerValue = "Заряд батареи <= 20% или Power Saver",
+                    actionsSummary = "Battery Monitor ➔ Пауза тяжелых вычислений ➔ Защита календаря",
+                    actionsJson = "[\"Телеметрия заряда аккумулятора и состояния питания\", \"Приостановка фонового LLM рассуждения\", \"Приостановка фоновой синхронизации MCP\", \"Гарантированное сохранение срочных напоминаний\"]",
+                    isEnabled = true,
+                    lastRunMillis = now - 3600000L * 6,
+                    lastRunStatus = "SUCCESS",
+                    executionCount = 5
+                ),
+                AutomationWorkflowEntity(
+                    id = 5,
+                    title = "Вечерний обзор проектов и бэклога",
+                    description = "Анализирует прогресс проектов, подводит итоги спринта и формирует черновик плана ключевых задач на следующий рабочий день.",
+                    category = "ROUTINE",
+                    triggerType = "TIME_SCHEDULE",
+                    triggerValue = "Ежедневно в 19:30",
+                    actionsSummary = "Анализ прогресса ➔ Расчет дедлайнов ➔ Черновик задач",
+                    actionsJson = "[\"Сканирование активных проектов и выполненных задач\", \"Формирование прогресс-отчета\", \"Запись черновика плана в Заметки\"]",
+                    isEnabled = false,
+                    lastRunMillis = now - 86400000L,
+                    lastRunStatus = "SUCCESS",
+                    executionCount = 8
+                )
+            )
+            db.automationWorkflowDao().insertAll(sampleWorkflows)
+
+            // Initial Execution Logs
+            val sampleLogs = listOf(
+                WorkflowExecutionLogEntity(
+                    workflowId = 1,
+                    workflowTitle = "Утренний брифинг & Расписание дня",
+                    executedAtMillis = now - 3600000L * 2,
+                    status = "SUCCESS",
+                    durationMs = 420L,
+                    summary = "Синхронизировано 2 события Google и 1 Outlook. Сформирована утренняя заметка с 3 задачами.",
+                    batteryStateInfo = "Батарея: 88% (Разрядка) • Режим: Полная мощность"
+                ),
+                WorkflowExecutionLogEntity(
+                    workflowId = 2,
+                    workflowTitle = "Синхронизация рабочих заметок & MCP Vault",
+                    executedAtMillis = now - 3600000L * 1,
+                    status = "SUCCESS",
+                    durationMs = 280L,
+                    summary = "Обновлено 2 заметки в локальном хранилище и синхронизировано через MCP Cloud Vault.",
+                    batteryStateInfo = "Батарея: 86% (Разрядка) • Режим: Обычный"
+                ),
+                WorkflowExecutionLogEntity(
+                    workflowId = 3,
+                    workflowTitle = "Подготовка контекста к встречам",
+                    executedAtMillis = now - 3600000L * 4,
+                    status = "SUCCESS",
+                    durationMs = 190L,
+                    summary = "Подготовлена повестка для созвона «Синхронизация по архитектуре MCP». Уведомление доставлено.",
+                    batteryStateInfo = "Батарея: 92% (Разрядка)"
+                ),
+                WorkflowExecutionLogEntity(
+                    workflowId = 4,
+                    workflowTitle = "Фоновый оптимизатор питания (Power Guard)",
+                    executedAtMillis = now - 3600000L * 6,
+                    status = "SUCCESS",
+                    durationMs = 95L,
+                    summary = "Проверка состояния питания: заряд 94%, режим Power Saver выключен. Ограничения не требуются.",
+                    batteryStateInfo = "Батарея: 94% (Разрядка) • Энергосбережение не активно"
+                )
+            )
+            for (log in sampleLogs) {
+                db.workflowExecutionLogDao().insertLog(log)
+            }
         }
     }
 }

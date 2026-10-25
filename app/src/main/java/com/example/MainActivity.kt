@@ -64,6 +64,8 @@ fun MainAppScreen(viewModel: HermesAgentViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val directChatMessages by viewModel.directChatMessages.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
+    val automationWorkflows by viewModel.automationWorkflows.collectAsStateWithLifecycle()
+    val workflowLogs by viewModel.workflowLogs.collectAsStateWithLifecycle()
     val skills by viewModel.allSkills.collectAsStateWithLifecycle()
     val calendarEvents by viewModel.calendarEvents.collectAsStateWithLifecycle()
     val notes by viewModel.notes.collectAsStateWithLifecycle()
@@ -293,6 +295,7 @@ fun MainAppScreen(viewModel: HermesAgentViewModel) {
                     activeMcpCount = mcpServers.count { it.isEnabled },
                     isProcessing = isProcessing,
                     batteryState = batteryState,
+                    activeWorkflowsCount = automationWorkflows.count { it.isEnabled },
                     onPrivacyToggle = {
                         viewModel.setLocalModelOnly(!useLocalModelOnly)
                     },
@@ -384,10 +387,18 @@ fun MainAppScreen(viewModel: HermesAgentViewModel) {
                     )
                     AppTab.PROJECTS -> ProjectsScreen(
                         projects = projects,
+                        workflows = automationWorkflows,
+                        workflowLogs = workflowLogs,
                         isDarkTheme = isDarkTheme,
                         onCreateProject = { title, desc, cat, tags -> viewModel.createProject(title, desc, cat, tags = tags) },
                         onUpdateProgress = { project, progress -> viewModel.updateProjectProgress(project, progress) },
-                        onDeleteProject = { id -> viewModel.deleteProject(id) }
+                        onDeleteProject = { id -> viewModel.deleteProject(id) },
+                        onToggleWorkflow = { id, enabled -> viewModel.toggleWorkflow(id, enabled) },
+                        onExecuteWorkflow = { wf -> viewModel.executeWorkflow(wf) },
+                        onCreateWorkflow = { title, desc, cat, trigType, trigVal, actions ->
+                            viewModel.createWorkflow(title, desc, cat, trigType, trigVal, actions)
+                        },
+                        onDeleteWorkflow = { id -> viewModel.deleteWorkflow(id) }
                     )
                     AppTab.SETTINGS -> SettingsScreen(
                         modelProvider = modelProvider,

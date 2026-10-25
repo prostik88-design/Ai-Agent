@@ -177,3 +177,49 @@ interface DirectChatMessageDao {
     @Query("DELETE FROM direct_chat_messages")
     suspend fun clearMessages()
 }
+
+@Dao
+interface AutomationWorkflowDao {
+    @Query("SELECT * FROM automation_workflows ORDER BY isEnabled DESC, id ASC")
+    fun getAllWorkflows(): Flow<List<AutomationWorkflowEntity>>
+
+    @Query("SELECT * FROM automation_workflows WHERE isEnabled = 1")
+    fun getActiveWorkflows(): Flow<List<AutomationWorkflowEntity>>
+
+    @Query("SELECT * FROM automation_workflows WHERE id = :id LIMIT 1")
+    suspend fun getWorkflowById(id: Long): AutomationWorkflowEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWorkflow(workflow: AutomationWorkflowEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(workflows: List<AutomationWorkflowEntity>)
+
+    @Update
+    suspend fun updateWorkflow(workflow: AutomationWorkflowEntity)
+
+    @Query("UPDATE automation_workflows SET isEnabled = :enabled WHERE id = :id")
+    suspend fun setWorkflowEnabled(id: Long, enabled: Boolean)
+
+    @Query("UPDATE automation_workflows SET lastRunMillis = :time, lastRunStatus = :status, executionCount = executionCount + 1 WHERE id = :id")
+    suspend fun recordExecution(id: Long, time: Long, status: String)
+
+    @Query("DELETE FROM automation_workflows WHERE id = :id")
+    suspend fun deleteWorkflowById(id: Long)
+}
+
+@Dao
+interface WorkflowExecutionLogDao {
+    @Query("SELECT * FROM workflow_execution_logs ORDER BY executedAtMillis DESC LIMIT 50")
+    fun getRecentLogs(): Flow<List<WorkflowExecutionLogEntity>>
+
+    @Query("SELECT * FROM workflow_execution_logs WHERE workflowId = :workflowId ORDER BY executedAtMillis DESC LIMIT 20")
+    fun getLogsForWorkflow(workflowId: Long): Flow<List<WorkflowExecutionLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLog(log: WorkflowExecutionLogEntity): Long
+
+    @Query("DELETE FROM workflow_execution_logs")
+    suspend fun clearLogs()
+}
+

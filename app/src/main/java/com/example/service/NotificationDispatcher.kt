@@ -83,6 +83,38 @@ class NotificationDispatcher(private val context: Context) {
         }
     }
 
+    fun dispatchWorkflowNotification(
+        title: String,
+        summary: String,
+        notificationId: Int = (System.currentTimeMillis() % 10000).toInt()
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("⚡ $title")
+            .setContentText(summary)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$summary\nПайплайн автоматизации Hermes"))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+
+        try {
+            val notificationManager = NotificationManagerCompat.from(context)
+            notificationManager.notify(notificationId, builder.build())
+        } catch (e: SecurityException) {
+            // Permission not yet granted
+        }
+    }
+
     suspend fun dispatchTelegramNotification(
         botToken: String,
         chatId: String,
